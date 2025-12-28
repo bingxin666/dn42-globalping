@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DN42 Globalping</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 400px;
+            background: white;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 20px;
+            background: #2c3e50;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .controls {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .probe-list {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .probe-list h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .probe-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .probe-item:hover {
+            background: #e9ecef;
+        }
+
+        .probe-item.selected {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .probe-item .probe-name {
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .probe-item .probe-location {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .probe-item .probe-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            margin-right: 5px;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .output-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 600px;
+            max-height: 400px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: none;
+        }
+
+        .output-panel.visible {
+            display: block;
+        }
+
+        .output-panel .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .output-panel .output-title {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .output-panel .close-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+        }
+
+        .output-panel .close-btn:hover {
+            color: #fff;
+        }
+
+        .output-line {
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .output-line.error {
+            color: #f44336;
+        }
+
+        .output-line .probe-label {
+            color: #2196f3;
+            font-weight: bold;
+        }
+
+        .status-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+        }
+
+        .status-indicator.disconnected {
+            background: #f44336;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="sidebar">
+                <div class="header">
+                    <h1>DN42 Globalping</h1>
+                    <p>Distributed Network Probe Platform</p>
+                </div>
+
+                <div class="controls">
+                    <div class="form-group">
+                        <label>Tool</label>
+                        <select v-model="selectedTool">
+                            <option value="ping">Ping</option>
+                            <option value="traceroute">Traceroute</option>
+                            <option value="mtr">MTR</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Target</label>
+                        <input 
+                            v-model="target" 
+                            type="text" 
+                            placeholder="e.g., google.com or 8.8.8.8"
+                        />
+                    </div>
+
+                    <button 
+                        class="btn" 
+                        @click="executeTask"
+                        :disabled="!canExecute"
+                    >
+                        Execute
+                    </button>
+                </div>
+
+                <div class="probe-list">
+                    <h3>Probes ({{ probes.length }})</h3>
+                    <div v-if="probes.length === 0" class="loading">
+                        No probes available. Start some probe nodes first.
+                    </div>
+                    <div 
+                        v-for="probe in probes" 
+                        :key="probe.id"
+                        class="probe-item"
+                        :class="{ selected: selectedProbes.includes(probe.id) }"
+                        @click="toggleProbe(probe.id)"
+                    >
+                        <div class="probe-name">
+                            <span class="probe-status"></span>
+                            {{ probe.name }}
+                        </div>
+                        <div class="probe-location">{{ probe.location }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+
+                <div class="status-bar">
+                    <span 
+                        class="status-indicator" 
+                        :class="{ connected: wsConnected, disconnected: !wsConnected }"
+                    ></span>
+                    {{ wsConnected ? 'Connected' : 'Disconnected' }}
+                </div>
+
+                <div class="output-panel" :class="{ visible: showOutput }">
+                    <div class="output-header">
+                        <span class="output-title">Output</span>
+                        <button class="close-btn" @click="showOutput = false">✕</button>
+                    </div>
+                    <div ref="outputContainer">
+                        <div 
+                            v-for="(line, index) in outputLines" 
+                            :key="index"
+                            class="output-line"
+                            :class="{ error: line.isError }"
+                        >
+                            <span class="probe-label">[{{ line.probeName }}]</span> {{ line.text }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3.4.21/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    ws: null,
+                    wsConnected: false,
+                    probes: [],
+                    selectedProbes: [],
+                    selectedTool: 'ping',
+                    target: '',
+                    map: null,
+                    markers: {},
+                    outputLines: [],
+                    showOutput: false
+                }
+            },
+            computed: {
+                canExecute() {
+                    return this.selectedProbes.length > 0 && 
+                           this.target.trim() !== '' && 
+                           this.wsConnected;
+                }
+            },
+            mounted() {
+                this.initMap();
+                this.connectWebSocket();
+            },
+            methods: {
+                initMap() {
+                    this.map = L.map('map').setView([20, 0], 2);
+                    
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors',
+                        maxZoom: 18
+                    }).addTo(this.map);
+                },
+                
+                connectWebSocket() {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/ws/web`;
+                    
+                    this.ws = new WebSocket(wsUrl);
+                    
+                    this.ws.onopen = () => {
+                        console.log('WebSocket connected');
+                        this.wsConnected = true;
+                        this.requestProbeList();
+                        
+                        // Refresh probe list every 10 seconds
+                        setInterval(() => {
+                            if (this.wsConnected) {
+                                this.requestProbeList();
+                            }
+                        }, 10000);
+                    };
+                    
+                    this.ws.onclose = () => {
+                        console.log('WebSocket disconnected');
+                        this.wsConnected = false;
+                        
+                        // Reconnect after 3 seconds
+                        setTimeout(() => this.connectWebSocket(), 3000);
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        this.handleMessage(message);
+                    };
+                },
+                
+                requestProbeList() {
+                    this.sendMessage({
+                        type: 'list_probes',
+                        payload: {}
+                    });
+                },
+                
+                handleMessage(message) {
+                    switch (message.type) {
+                        case 'probes_list':
+                            this.updateProbes(message.payload);
+                            break;
+                        case 'task_output':
+                            this.handleTaskOutput(message.payload);
+                            break;
+                        case 'task_complete':
+                            this.handleTaskComplete(message.payload);
+                            break;
+                    }
+                },
+                
+                updateProbes(probes) {
+                    this.probes = probes;
+                    
+                    // Update map markers
+                    const currentIds = new Set(probes.map(p => p.id));
+                    
+                    // Remove markers for probes that no longer exist
+                    Object.keys(this.markers).forEach(id => {
+                        if (!currentIds.has(id)) {
+                            this.map.removeLayer(this.markers[id]);
+                            delete this.markers[id];
+                        }
+                    });
+                    
+                    // Add or update markers
+                    probes.forEach(probe => {
+                        if (probe.lat !== 0 || probe.lng !== 0) {
+                            if (this.markers[probe.id]) {
+                                this.markers[probe.id].setLatLng([probe.lat, probe.lng]);
+                            } else {
+                                const marker = L.marker([probe.lat, probe.lng])
+                                    .addTo(this.map)
+                                    .bindPopup(`<b>${probe.name}</b><br>${probe.location}`);
+                                
+                                marker.on('click', () => {
+                                    this.toggleProbe(probe.id);
+                                });
+                                
+                                this.markers[probe.id] = marker;
+                            }
+                            
+                            // Update marker appearance based on selection
+                            const isSelected = this.selectedProbes.includes(probe.id);
+                            const icon = L.divIcon({
+                                className: 'custom-marker',
+                                html: `<div style="
+                                    background: ${isSelected ? '#2196f3' : '#4caf50'};
+                                    width: 12px;
+                                    height: 12px;
+                                    border-radius: 50%;
+                                    border: 2px solid white;
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                "></div>`,
+                                iconSize: [16, 16],
+                                iconAnchor: [8, 8]
+                            });
+                            this.markers[probe.id].setIcon(icon);
+                        }
+                    });
+                },
+                
+                toggleProbe(probeId) {
+                    const index = this.selectedProbes.indexOf(probeId);
+                    if (index > -1) {
+                        this.selectedProbes.splice(index, 1);
+                    } else {
+                        this.selectedProbes.push(probeId);
+                    }
+                    
+                    // Update marker appearance
+                    this.updateProbes(this.probes);
+                },
+                
+                executeTask() {
+                    if (!this.canExecute) return;
+                    
+                    this.outputLines = [];
+                    this.showOutput = true;
+                    
+                    const payload = {
+                        probe_ids: this.selectedProbes,
+                        tool: this.selectedTool,
+                        target: this.target.trim()
+                    };
+                    
+                    this.sendMessage({
+                        type: 'execute_task',
+                        payload: payload
+                    });
+                },
+                
+                handleTaskOutput(output) {
+                    const probe = this.probes.find(p => p.id === output.probe_id);
+                    const probeName = probe ? probe.name : output.probe_id;
+                    
+                    this.outputLines.push({
+                        probeName: probeName,
+                        text: output.line,
+                        isError: output.is_error || false
+                    });
+                    
+                    // Auto-scroll to bottom
+                    this.$nextTick(() => {
+                        const container = this.$refs.outputContainer;
+                        if (container) {
+                            container.parentElement.scrollTop = container.parentElement.scrollHeight;
+                        }
+                    });
+                },
+                
+                handleTaskComplete(complete) {
+                    const probe = this.probes.find(p => p.id === complete.probe_id);
+                    const probeName = probe ? probe.name : complete.probe_id;
+                    
+                    this.outputLines.push({
+                        probeName: probeName,
+                        text: `--- Task completed with exit code ${complete.exit_code} ---`,
+                        isError: complete.exit_code !== 0
+                    });
+                },
+                
+                sendMessage(message) {
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify(message));
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8080:8080"
+    networks:
+      - globalping
+
+  probe-us-east:
+    build:
+      context: .
+      dockerfile: Dockerfile.probe
+    environment:
+      - SERVER_URL=ws://backend:8080/ws/probe
+      - PROBE_NAME=US-East-1
+      - PROBE_LOCATION=Virginia, USA
+      - PROBE_LAT=37.5407
+      - PROBE_LNG=-77.4360
+    depends_on:
+      - backend
+    networks:
+      - globalping
+    restart: unless-stopped
+
+  probe-eu-west:
+    build:
+      context: .
+      dockerfile: Dockerfile.probe
+    environment:
+      - SERVER_URL=ws://backend:8080/ws/probe
+      - PROBE_NAME=EU-West-1
+      - PROBE_LOCATION=London, UK
+      - PROBE_LAT=51.5074
+      - PROBE_LNG=-0.1278
+    depends_on:
+      - backend
+    networks:
+      - globalping
+    restart: unless-stopped
+
+  probe-asia:
+    build:
+      context: .
+      dockerfile: Dockerfile.probe
+    environment:
+      - SERVER_URL=ws://backend:8080/ws/probe
+      - PROBE_NAME=Asia-East-1
+      - PROBE_LOCATION=Tokyo, Japan
+      - PROBE_LAT=35.6762
+      - PROBE_LNG=139.6503
+    depends_on:
+      - backend
+    networks:
+      - globalping
+    restart: unless-stopped
+
+networks:
+  globalping:
+    driver: bridge

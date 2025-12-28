@@ -1,0 +1,27 @@
+# Build probe
+FROM golang:1.21-alpine AS builder
+WORKDIR /app
+COPY probe/go.mod probe/go.sum* ./
+RUN go mod download
+COPY probe/main.go ./
+RUN CGO_ENABLED=0 GOOS=linux go build -o probe main.go
+
+# Final image with network tools
+FROM alpine:latest
+RUN apk --no-cache add \
+    ca-certificates \
+    iputils \
+    bind-tools \
+    traceroute \
+    mtr
+
+WORKDIR /app
+COPY --from=builder /app/probe /app/
+
+ENV SERVER_URL=ws://backend:8080/ws/probe
+ENV PROBE_NAME=probe
+ENV PROBE_LOCATION=Unknown
+ENV PROBE_LAT=0
+ENV PROBE_LNG=0
+
+CMD ["sh", "-c", "./probe -server=$SERVER_URL -name=$PROBE_NAME -location=$PROBE_LOCATION -lat=$PROBE_LAT -lng=$PROBE_LNG"]
